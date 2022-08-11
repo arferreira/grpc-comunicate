@@ -23,7 +23,8 @@ func main() {
 
 	// AddUser(client)
 	// AddUserVerbose(client)
-	AddUsers(client)
+	// AddUsers(client)
+	AddUserStreamBoth(client)
 }
 
 func AddUser(client pb.UserServiceClient) {
@@ -108,4 +109,65 @@ func AddUsers(client pb.UserServiceClient) {
 
 	fmt.Println(res)
 
+}
+
+func AddUserStreamBoth(client pb.UserServiceClient) {
+	stream, err := client.AddUserStreamBoth(context.Background())
+
+	if err != nil {
+		log.Fatalf("Error create request: %v", err)
+	}
+
+	reqs := []*pb.User{
+		&pb.User{
+			Id:    "a1",
+			Name:  "Antonio",
+			Email: "antonio@gmail.com",
+		},
+		&pb.User{
+			Id:    "a2",
+			Name:  "Antonio",
+			Email: "antonio@gmail.com",
+		},
+		&pb.User{
+			Id:    "a3",
+			Name:  "Antonio",
+			Email: "antonio@gmail.com",
+		},
+		&pb.User{
+			Id:    "a4",
+			Name:  "Antonio",
+			Email: "antonio@gmail.com",
+		},
+	}
+
+	wait := make(chan int)
+
+	// goroutine to handle stream both
+	go func() {
+		for _, req := range reqs {
+			fmt.Println("Sending user: ", req.Name)
+			stream.Send(req)
+			time.Sleep(time.Second * 2)
+		}
+		stream.CloseSend()
+	}()
+
+	// Applying concurrency with goroutine to receive stream
+	go func() {
+		for {
+			res, err := stream.Recv()
+			if err == io.EOF {
+				break
+			}
+			if err != nil {
+				log.Fatalf("Error ocurring on receiving data: %v", err)
+				break
+			}
+			fmt.Printf("Receiving user %v with status %v", res.GetUser().GetName(), res.GetStatus())
+		}
+		close(wait)
+	}()
+
+	<-wait
 }
